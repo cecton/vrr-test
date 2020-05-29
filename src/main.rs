@@ -1,15 +1,19 @@
 use sdl2;
-use sdl2::render::Canvas;
-use sdl2::video::{Window, WindowBuildError};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
+use sdl2::render::Canvas;
+use sdl2::video::{DisplayMode, Window, WindowBuildError};
+use std::convert::TryFrom;
+use std::thread::sleep;
+use std::time::Duration;
 
 struct App {
     sdl_context: sdl2::Sdl,
     timer: sdl2::TimerSubsystem,
     running: bool,
     canvas: Canvas<Window>,
+    display_mode: DisplayMode,
 }
 
 impl App {
@@ -21,13 +25,16 @@ impl App {
         let sdl_context = sdl2::init().unwrap();
         let video = sdl_context.video().unwrap();
         let timer = sdl_context.timer().unwrap();
-        let canvas = build_window(video).unwrap().into_canvas().build().unwrap();
+        let window = build_window(video).unwrap();
+        let display_mode = window.display_mode().unwrap();
+        let canvas = window.into_canvas().build().unwrap();
 
         App {
             sdl_context,
             timer,
             running: true,
             canvas,
+            display_mode,
         }
     }
 
@@ -53,6 +60,8 @@ fn initialize_app() -> App {
 
 fn game_loop(mut app: App) {
     let mut event_pump = app.sdl_context.event_pump().unwrap();
+    let refresh_rate = app.display_mode.refresh_rate;
+    let delay = Duration::from_millis(1_000_u64 / u64::try_from(refresh_rate).unwrap() + 1);
     let (w, h) = app.canvas.output_size().unwrap();
     let colors = vec![Color::RGB(0, 0, 0), Color::RGB(255, 255, 255)];
     let mut color_it = colors.iter().cycle().cloned();
@@ -60,6 +69,7 @@ fn game_loop(mut app: App) {
     let t1 = app.timer.ticks();
 
     eprintln!("window size: {}x{}", w, h);
+    eprintln!("refresh rate: {} Hz", refresh_rate);
     while app.is_running() {
         if let Some(event) = event_pump.poll_event() {
             match event {
@@ -82,6 +92,7 @@ fn game_loop(mut app: App) {
         app.canvas.clear();
 
         app.canvas.present();
+        sleep(delay);
 
         fps_counter += 1;
     }
